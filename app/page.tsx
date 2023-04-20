@@ -1,39 +1,90 @@
-import Link from "next/link"
+"use client"
 
-import { siteConfig } from "@/config/site"
-import { buttonVariants } from "@/components/ui/button"
+import { useState } from 'react';
+import Papa from 'papaparse';
+import PivotTableUI from 'react-pivottable/PivotTableUI';
+import 'react-pivottable/pivottable.css';
+import  OpenAI  from 'openai-api';
+import { error } from 'console';
+import { FormErrorMessage } from '@chakra-ui/react';
 
-export default function IndexPage() {
+const FileUploader = () => {
+  const [file, setFile] = useState<File>();
+  const [data, setData] = useState<string[][]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [response, setResponse] = useState<string>("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    setError('');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const fileContent = e.target?.result;
+      if (fileContent) {
+        const { data } = Papa.parse(fileContent.toString());
+        setData(data as any[][]);
+      }
+    };
+    reader.onerror = (e) => setError(e.target?.error?.message || 'Unknown error');
+    reader.readAsText(file);
+    setIsLoading(false);
+  };
+
+  const handleAskQuestion = async (question: string) => {
+    if (!OpenAI) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const context = data.map((row) => row.join(' ')).join(' ');
+      const response = await OpenAI.arguments(handleAskQuestion);
+      setOutput(response.data);
+    } catch (error) {
+      console.error(error);
+      setError('An error occurred, please try again.');
+    }
+    setIsLoading(false);
+  };
+
   return (
-    <section className="container grid items-center gap-6 pb-8 pt-6 md:py-10">
-      <div className="flex max-w-[980px] flex-col items-start gap-2">
-        <h1 className="text-3xl font-extrabold leading-tight tracking-tighter sm:text-3xl md:text-5xl lg:text-6xl">
-          Beautifully designed components <br className="hidden sm:inline" />
-          built with Radix UI and Tailwind CSS.
-        </h1>
-        <p className="max-w-[700px] text-lg text-muted-foreground sm:text-xl">
-          Accessible and customizable components that you can copy and paste
-          into your apps. Free. Open Source. And Next.js 13 Ready.
-        </p>
-      </div>
-      <div className="flex gap-4">
-        <Link
-          href={siteConfig.links.docs}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants({ size: "lg" })}
-        >
-          Documentation
-        </Link>
-        <Link
-          target="_blank"
-          rel="noreferrer"
-          href={siteConfig.links.github}
-          className={buttonVariants({ variant: "outline", size: "lg" })}
-        >
-          GitHub
-        </Link>
-      </div>
-    </section>
-  )
+    <div>
+      <h1>Spreadsheet Interpreter</h1>
+      <input type="file" onChange={handleFileChange} />
+      {isLoading ? (
+        <p>Loading...</p>
+      ) : (
+        <>
+
+          <p>{response}</p>
+          <p>{setOutput}</p>
+          <p>{data}</p>
+          <p>{isLoading}</p>
+          <p>Loaded {data.length} rows of data</p>
+          <OpenAI arguments={handleAskQuestion}>
+            <QuestionForm onSubmit={handleAskQuestion} />
+            {output && <PivotTableUI data={output} />}
+          </OpenAI>
+
+
+        </>
+
+
+      )}
+    </div>
+  );
+};
+
+export default FileUploader;
+
+function setError(_arg0: string) {
+  throw new Error('Function not implemented.');
 }
+function setOutput(data: any) {
+  throw new Error('Function not implemented.');
+}
+
