@@ -17,9 +17,10 @@ import PivotTableUI from 'react-pivottable/PivotTableUI';
 import TableRenderers from 'react-pivottable/TableRenderers';
 
 interface CSVData {
+  onChange: any;
   data: CSVRow[];
   meta: {
-    fields: string[];
+    fields: any[];
   };
   onchange: (data: CSVData) => void;
 
@@ -74,17 +75,22 @@ const FileUploader = () => {
     const fileContent = event.target?.files?.[0];
     if (fileContent) {
       const reader = new FileReader();
-      setIsLoading(true);
       reader.onload = (e) => {
         const fileContent = e.target?.result;
         if (fileContent) {
           const { data, meta }: { data: CSVRow[], meta: ParseMeta } = parse(fileContent.toString(), {
             header: true,
           });
-          const csvData: CSVData = { data, meta:meta.fields, onChange: (data: CSVData) => {} };
+          const csvData: CSVData = {
+            data, meta: { fields: [meta.fields] }, onChange: (data: CSVData) => {
+              setCsvData(data);
+            },
+            onchange: function (data: CSVData): void {
+              throw new Error('Function not implemented.');
+            }
+          };
           setCsvData(csvData);
         }
-        setIsLoading(false);
       };
       reader.readAsText(fileContent);
     }
@@ -114,7 +120,8 @@ const FileUploader = () => {
       setCsvData(newCsvData);
     }
   };
-  return (
+  console.log("csvData", csvData);
+return (
     <Box p={5}>
       <Heading mb={5}>Pivot Table App</Heading>
       <FormControl mb={5}>
@@ -132,13 +139,12 @@ const FileUploader = () => {
         />
       )}
       {csvData && (
-        <PivotTableUI
-        {...csvData}
-        renderers={Object.assign({}, TableRenderers, {
-            TableWithBarchart: TableRenderers.Table,
-          })}
+        <PivotTableUI data={csvData.data} onChange={csvData.onChange} rendererName='PivotTableUI' renderers={Object.assign({}, TableRenderers, {
+          'Table Barchart': TableRenderers['Table Barchart'],
+          'Table Heatmap': TableRenderers['Table Heatmap'],
+          'Table Map': TableRenderers['Table Map'],
 
-          
+        })}
         />
       )}
     </Box>
