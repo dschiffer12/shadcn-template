@@ -1,39 +1,153 @@
-import Link from "next/link"
+"use client"
 
-import { siteConfig } from "@/config/site"
-import { buttonVariants } from "@/components/ui/button"
+import { useState } from 'react';
+import Papa, { ParseMeta, parse } from 'papaparse';
+import ReactPivottableUI from 'react-pivottable';
+import OpenAI from 'openai-api';
+import {
+  Box,
+  Heading,
+  FormControl,
+  FormLabel,
+  Input,
+  Button,
+  Spinner,
+} from '@chakra-ui/react';
+import PivotTableUI from 'react-pivottable/PivotTableUI';
+import TableRenderers from 'react-pivottable/TableRenderers';
 
-export default function IndexPage() {
-  return (
-    <section className="container grid items-center gap-6 pb-8 pt-6 md:py-10">
-      <div className="flex max-w-[980px] flex-col items-start gap-2">
-        <h1 className="text-3xl font-extrabold leading-tight tracking-tighter sm:text-3xl md:text-5xl lg:text-6xl">
-          Beautifully designed components <br className="hidden sm:inline" />
-          built with Radix UI and Tailwind CSS.
-        </h1>
-        <p className="max-w-[700px] text-lg text-muted-foreground sm:text-xl">
-          Accessible and customizable components that you can copy and paste
-          into your apps. Free. Open Source. And Next.js 13 Ready.
-        </p>
-      </div>
-      <div className="flex gap-4">
-        <Link
-          href={siteConfig.links.docs}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants({ size: "lg" })}
-        >
-          Documentation
-        </Link>
-        <Link
-          target="_blank"
-          rel="noreferrer"
-          href={siteConfig.links.github}
-          className={buttonVariants({ variant: "outline", size: "lg" })}
-        >
-          GitHub
-        </Link>
-      </div>
-    </section>
-  )
+interface CSVData {
+  onChange: any;
+  data: CSVRow[];
+  meta: {
+    fields: any[];
+  };
+  onchange: (data: CSVData) => void;
+
+}
+
+interface CSVRow {
+  [key: string]: string;
+}
+
+function parseCSV<T extends CSVRow>(csv: string): T[] {
+  const lines = csv.split('');
+  const [header, ...rows] = lines;
+  const keys = header.split(',');
+  const data: T[] = [];
+
+  for (const row of rows) {
+    const values = row.split(',');
+    const item: any = {};
+
+    for (let i = 0; i < values.length; i++) {
+      item[keys[i]] = values[i];
+    }
+
+    data.push(item);
+  }
+
+  return data;
+}
+
+const csv = 'csvData'
+const data = parseCSV(csv);
+
+console.log(data);
+
+const FileUploader = () => {
+  const [file, setFile] = useState<File>();
+  const [data, setData] = useState<string[][]>([]);
+  const [csvData, setCsvData] = useState<CSVData>();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [response, setResponse] = useState<string>();
+  const [error, setError] = useState<string>();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    setError('');
+
+    const reader = new FileReader();
+  const onFileRead = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileContent = event.target?.files?.[0];
+    if (fileContent) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const fileContent = e.target?.result;
+        if (fileContent) {
+          const { data, meta }: { data: CSVRow[], meta: ParseMeta } = parse(fileContent.toString(), {
+            header: true,
+          });
+          const csvData: CSVData = {
+            data, meta: { fields: [meta.fields] }, onChange: (data: CSVData) => {
+              setCsvData(data);
+            },
+            onchange: function (data: CSVData): void {
+              throw new Error('Function not implemented.');
+            }
+          };
+          setCsvData(csvData);
+        }
+      };
+      reader.readAsText(fileContent);
+    }
+  };
+  const handleAskQuestion = async (question: string) => {
+    if (!OpenAI) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const context = data.map((row) => row.join(' ')).join(' ');
+      const response = await OpenAI.arguments(question, context);
+      setResponse(response.data);
+    } catch (error) {
+      console.error(error);
+      setError('An error occurred, please try again.');
+    }
+    setIsLoading(false);
+  };
+  const handleFieldChange = (field: string | undefined, value: any) => {
+    if (field && csvData) {
+      const newCsvData: CSVData = {
+        ...csvData,
+        [field]: value,
+      };
+      setCsvData(newCsvData);
+    }
+  };
+  console.log("csvData", csvData);
+return (
+    <Box p={5}>
+      <Heading mb={5}>Pivot Table App</Heading>
+      <FormControl mb={5}>
+        <FormLabel>Upload CSV file:</FormLabel>
+        <Input type="file" onChange={handleFileChange} />
+      </FormControl>
+      {isLoading && (
+        <Spinner
+          thickness="4px"
+          speed="0.65s"
+          emptyColor="gray.200"
+          color="blue.500"
+          size="xl"
+          alignSelf="center"
+        />
+      )}
+      {csvData && (
+        <PivotTableUI data={csvData.data} onChange={csvData.onChange} rendererName='PivotTableUI' renderers={Object.assign({}, TableRenderers, {
+          'Table Barchart': TableRenderers['Table Barchart'],
+          'Table Heatmap': TableRenderers['Table Heatmap'],
+          'Table Map': TableRenderers['Table Map'],
+
+        })}
+        />
+      )}
+    </Box>
+  );
+};
 }
