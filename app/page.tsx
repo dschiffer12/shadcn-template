@@ -17,13 +17,13 @@ import PivotTableUI from 'react-pivottable/PivotTableUI';
 import TableRenderers from 'react-pivottable/TableRenderers';
 
 interface CSVData {
-  onChange: any;
+  onChange: (data: CSVData) => void;
   data: CSVRow[];
   meta: {
-    fields: any[];
+    fields: string[];
   };
-  onchange: (data: CSVData) => void;
-
+  onChange: (data: CSVData) => void;
+  log: (msg: string) => void;
 }
 
 interface CSVRow {
@@ -38,7 +38,7 @@ function parseCSV<T extends CSVRow>(csv: string): T[] {
 
   for (const row of rows) {
     const values = row.split(',');
-    const item: any = {};
+    const item: CSVData = {};
 
     for (let i = 0; i < values.length; i++) {
       item[keys[i]] = values[i];
@@ -111,7 +111,7 @@ const FileUploader = () => {
     }
     setIsLoading(false);
   };
-  const handleFieldChange = (field: string | undefined, value: any) => {
+  const handleFieldChange = (field: string | undefined, value: FormControl) => {
     if (field && csvData) {
       const newCsvData: CSVData = {
         ...csvData,
